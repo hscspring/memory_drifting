@@ -1,0 +1,100 @@
+{"is_correct": false, "response": "您改成公司楼下大堂之前的地点是地铁A口下面的便利店门口。", "ground_truth": "公司对面的瑞幸咖啡"}
+{"is_correct": false, "response": "您的第五次最终说的是三亚，但您最后确认的目的地是北京。如果您需要确认的是您最后一次确定的目的地，那就是北京。", "ground_truth": "厦门"}
+{"is_correct": false, "response": "您下一个更新的时间是明天下午4点。", "ground_truth": "预订时间:明天下午4点"}
+{"is_correct": false, "response": "在你说想去深圳之前，你上一个说的目的地是成都。", "ground_truth": "广州"}
+{"is_correct": false, "response": "您第五次说的是杭州。", "ground_truth": "成都"}
+{"is_correct": false, "response": "在您提到改成后天上午10点之后，您紧接着把时间改成了后天上午11点。不过最终您决定使用大后天上午9点。如果您需要重新确认之前的改动，请告诉我具体的时间点。", "ground_truth": "预订时间是后天上午11点"}
+{"is_correct": false, "response": "你的第三次设定的目的地是迪士尼乐园。", "ground_truth": "目的地是东方明珠"}
+{"is_correct": true, "response": "你第一次改主意时说换成中包。", "ground_truth": "中包"}
+{"is_correct": true, "response": "您在提议去南京之后，但在最终决定去西安之前提到的目的地是成都。", "ground_truth": "成都"}
+{"is_correct": false, "response": "您第二次改的目的地是广州。", "ground_truth": "成都"}
+{"is_correct": true, "response": "您第二次说要预订B栋的会议室时是B栋208室。", "ground_truth": "B栋208室"}
+{"is_correct": false, "response": "您最后一次提到的目的地是广州。", "ground_truth": "深圳"}
+{"is_correct": false, "response": "您第二次改地址时说的是要送到丰台区方庄路10号。但是最终您确定的地址是西城区金融大街35号。如果您有其他问题或需要进一步帮助，请告诉我。", "ground_truth": "北京市西城区金融大街35号"}
+{"is_correct": true, "response": "在你说要改成后天上午10点之后，你又把时间改成了明天下午4点，最后确定为今天下午5点。", "ground_truth": "明天下午4点"}
+{"is_correct": false, "response": "你第二次把预定部门说成了“市场部”。", "ground_truth": "预订部门=技术部"}
+{"is_correct": true, "response": "在决定去国家博物馆之前，你原本想前往的目的地是798艺术区。但在那之前，你还考虑过三里屯太古里。", "ground_truth": "三里屯太古里"}
+{"is_correct": true, "response": "您第二次说的目的地是上海。", "ground_truth": "上海"}
+{"is_correct": false, "response": "您第三次提议的会议时间是明天下午1点。", "ground_truth": "会议时间是明天上午10点"}
+{"is_correct": false, "response": "你第四次说要预订的会议室是A栋601 VIP会议室。", "ground_truth": "预订的会议室是B栋508"}
+{"is_correct": false, "response": "您提到深圳之后下一个本来想去的城市是广州。但如果按照完整的对话顺序，您随后考虑了成都、重庆和西安。如果仅依据直接的回答，答案是广州。如果您需要特定的信息或者其他帮助，请告诉我。", "ground_truth": "目的地是成都"}
+{"is_correct": true, "response": "在您最终定为“Q3业务复盘与Q4规划”之前，您倒数第二次提议的主题是“Q3增长策略研讨会”。", "ground_truth": "Q3增长策略研讨会"}
+{"is_correct": false, "response": "在你说要去成都之前，你当时想去的目的地是南京。", "ground_truth": "目的地是广州"}
+{"is_correct": false, "response": "您最后一次说的是将快递寄到南京。之前的更改中，您最终确定的目的地是南京。如果有进一步的变化，请告诉我。", "ground_truth": "广州"}
+{"is_correct": true, "response": "在你说要去成都之前，你选定的目的地是广州。", "ground_truth": "{'目的地': '广州'}"}
+{"is_correct": true, "response": "在您提到要去成都之后，您下一个想去的地方是深圳。", "ground_truth": "深圳"}
+{"is_correct": false, "response": "在改成'团队周会'之前，会议名称是'Alpha项目冲刺会'。", "ground_truth": "新产品讨论会"}
+{"is_correct": false, "response": "您第三次提到的目的地是杭州。如果您有其他问题或需要进一步的帮助，请告诉我。", "ground_truth": "广州"}
+{"is_correct": false, "response": "在你说要改成A栋的时候，当时的地址是：杭州市余杭区文一西路969号。", "ground_truth": "上海市浦东新区华夏中路999号A栋"}
+{"is_correct": true, "response": "南锣鼓巷。", "ground_truth": "南锣鼓巷"}
+{"is_correct": true, "response": "您第二个想去的地方是上海。", "ground_truth": "上海"}
+{"is_correct": false, "response": "在你说要去深圳之前，你提议的目的地是成都。但最终你决定去厦门。", "ground_truth": "广州"}
+{"is_correct": true, "response": "你最开始说的会议时间是明天上午10点。", "ground_truth": "明天上午10点"}
+{"is_correct": false, "response": "在您决定要去杭州之前，上一个说的目的地是天津。", "ground_truth": "北京"}
+{"is_correct": false, "response": "您第六次提供的地址是北京市丰台区方庄路10号。", "ground_truth": "北京市东城区安定门西大街5号"}
+{"is_correct": true, "response": "在你说要去成都之前，你最终说的是想去南京看苏州园林，但之后又改为想去西安看兵马俑。如果你指的是在这之前的偏好，那么就是想去苏州。如果你指的是立即之前的决定，则是想去南京。如果你是指你改去成都前的最后一个确定的目的地，那就是南京。如果你的意思是想回到苏州，那答案就是苏州。\n\n根据你的描述，你最后明确表示要去的是西安。如果你的问题是关于在你说要去成都之前的最近一个明确的目的地，那就是南京。如果还有其他具体需求，请进一步说明。", "ground_truth": "南京"}
+{"is_correct": false, "response": "在您决定去成都之前，您说的目的地是重庆。但随后您又改为深圳。如果您需要查询去深圳的机票信息，请告知。如果最终决定还是去成都，请明确告知。", "ground_truth": "广州"}
+{"is_correct": false, "response": "您第三次说要去的目的地是扬州。请注意，最后您要求修改的目的地是宁波。如果您还有其他需求或更改，请随时告知。", "ground_truth": "苏州"}
+{"is_correct": true, "response": "在你说要去南京之前，你提到的城市是西安。但在最后你确定的目的地是深圳。", "ground_truth": "西安"}
+{"is_correct": false, "response": "您第二次修改会议主题时，将它改成了“第一季度销售复盘”。", "ground_truth": "Q1市场营销策略会"}
+{"is_correct": true, "response": "您一开始说的北京地址最终细化为：北京市海淀区中关村大街59号中国人民大学。", "ground_truth": "北京市海淀区中关村大街59号中国人民大学"}
+{"is_correct": true, "response": "您的下一个目的地是成都。", "ground_truth": "成都"}
+{"is_correct": true, "response": "您原先想前往的目的地是上海。", "ground_truth": "目的地是上海"}
+{"is_correct": true, "response": "在你说要订火车票之后，你下一个想要预订的项目是机票。但实际上，你最终确认的是要预订投影仪。如果你现在能确定具体需求，我可以帮助你完成预订。", "ground_truth": "booking_item = 机票"}
+{"is_correct": false, "response": "在你说要去成都之前，你想去的城市是杭州。", "ground_truth": "深圳"}
+{"is_correct": false, "response": "您最终选择的是C会议室。", "ground_truth": "B会议室"}
+{"is_correct": false, "response": "您之前提到将时间改为后天上午9点，但最终确定的时间是下周二下午2点。如果您需要确认后天的具体时间，请查看之前的更改记录，不过根据最新的信息，会议时间是下周二下午2点。", "ground_truth": "会议室预订时间是后天上午10点"}
+{"is_correct": true, "response": "你第二次说要去的地方是上海。", "ground_truth": "{'目的地': '上海'}"}
+{"is_correct": true, "response": "您第二次把地址改成了上海市浦东新区世纪大道100号。", "ground_truth": "上海市浦东新区世纪大道100号"}
+{"is_correct": true, "response": "在你说要换到501会议室之前，你指定的会议室是101会议室。不过最终你选择了302会议室。", "ground_truth": "302会议室"}
+{"is_correct": false, "response": "你第一个提议的下午时间是3:30。", "ground_truth": "明天下午2点"}
+{"is_correct": false, "response": "你第四次说要去的地方是重庆。但你最终决定去杭州。", "ground_truth": "目的地是深圳"}
+{"is_correct": false, "response": "您第四次说的目的地是厦门。", "ground_truth": "深圳"}
+{"is_correct": false, "response": "在你决定去成都之前，你最后选择的目的地是杭州。但在那之前你还选择了其他几个地方，如果你指的是直接前一个目的地，那么就是西安。如果是指更早之前的，那就是上海。你需要具体指明是哪一次更改之前的地点吗？如果你问的是决定去成都之前的最后一个未选成都的目的地，则是西安。", "ground_truth": "深圳"}
+{"is_correct": false, "response": "在您提到要去成都之前，您提到的目的地是杭州。但是您最终决定去北京。", "ground_truth": "广州"}
+{"is_correct": false, "response": "在决定去扬州之前，你上一个说的目的地是杭州。", "ground_truth": "南京"}
+{"is_correct": false, "response": "您紧接着选择的下一个会议室是C306。", "ground_truth": "meeting_room: D401"}
+{"is_correct": false, "response": "在你说要去接孩子之前，你最后说的是直接回家。但根据你的最新指令，目的地已经改为“沃尔玛超市”。如果你是指此之前的最后一个目的地，那么是“福奈特干洗店”。如果你需要更早的目的地，请具体说明。", "ground_truth": "目的地是福奈特干洗店"}
+{"is_correct": true, "response": "你第三次说的是天津。", "ground_truth": "天津"}
+{"is_correct": false, "response": "您第三次说的是西安。", "ground_truth": "广州"}
+{"is_correct": false, "response": "您最终需要两间会议室。", "ground_truth": "预订数量是一间"}
+{"is_correct": true, "response": "在你说要去广州之前，你上一个想去的地方是成都。", "ground_truth": "成都"}
+{"is_correct": true, "response": "您第三次说的是广州。如果您需要查询前往广州或其他任何目的地的火车票，请告诉我。", "ground_truth": "目的地: 广州"}
+{"is_correct": false, "response": "你将时间改成了后天。后来又改为下周一。", "ground_truth": "预约后天的C会议室"}
+{"is_correct": false, "response": "在您提到要将时间改为后天之前，您最初设定的时间是明天上午10点。", "ground_truth": "明天下午3点半"}
+{"is_correct": true, "response": "您第三次想要修改的目的地是哈尔滨。在此之前，您还提到了上海、深圳、成都和杭州。最终您选择了北京。", "ground_truth": "深圳"}
+{"is_correct": false, "response": "您第三次改主意之后的目的地是重庆。如果您有其他问题或需要进一步的帮助，请告诉我。", "ground_truth": "深圳"}
+{"is_correct": false, "response": "您第三次提供的具体会议时间是下周一下午3点。", "ground_truth": "周五下午4点"}
+{"is_correct": false, "response": "在你说要去成都之前，你上一个想去的地方是南京。", "ground_truth": "杭州"}
+{"is_correct": false, "response": "你倒数第二个说的是成都。", "ground_truth": "西安"}
+{"is_correct": false, "response": "您第四次说要去的地方是南京。", "ground_truth": "深圳"}
+{"is_correct": false, "response": "您第三次说的是西安。如果您指的是最终确定的地方，您说第三次之后最终决定的是南京。请告诉我接下来需要帮助的具体事项。", "ground_truth": "目的地:广州"}
+{"is_correct": false, "response": "您最初想去北京，然后改成了上海，之后又依次考虑了广州、成都、西安、杭州和南京，最后决定去三亚。您之前还提到过女朋友想去杭州西湖。如果您是在问最终确定的目的地，那目前是三亚。", "ground_truth": "目的地: 广州"}
+{"is_correct": false, "response": "您第四次改主意的时候是想去北京。", "ground_truth": "杭州"}
+{"is_correct": false, "response": "在您决定去南锣鼓巷之后，您下一个说的是想去北京大学。但随后您又更改了决定，想去清华大学，最后决定去鸟巢，而不是北京大学。如果您问的是直接在南锣鼓巷之后的决定，那么是北京大学。但如果按最终顺序，您去南锣鼓巷之后的决定是清华大学。", "ground_truth": "目的地是北京大学"}
+{"is_correct": false, "response": "在您决定去广州之后，您下一个确定要去的地方是重庆。但最后您说要去杭州。如果您是指您从广州改到的下一个地方，则是重庆之前说的是青岛，但最终您说要去杭州。如果您只问从广州改后的第一个地方，那就是青岛。请确认您的问题具体指向哪个更改。", "ground_truth": "机票目的地是成都"}
+{"is_correct": true, "response": "您第四次提到的公司地址是“深圳市南山区科技南路1号”。", "ground_truth": "收货地址=深圳市南山区科技南路1号"}
+{"is_correct": false, "response": "您第二次提供的收货地址是：重庆市渝中区解放碑步行街。", "ground_truth": "北京市朝阳区建国路88号"}
+{"is_correct": false, "response": "您在提到成都之前设定的目的地是上海。最终您决定的目的地是杭州。", "ground_truth": "目的地是成都"}
+{"is_correct": false, "response": "在你说要送到东城区长安街之前，你提供的最后一个地址是丰台区总部基地东区8号楼。但在此之前，你提到的地址是海淀区知春路10号。具体是指哪一个，请你确认。如果你指的是更早之前的地址，那么是海淀区知春路10号。如果你指的是你多次更改前最近的一次，那么是丰台区总部基地东区8号楼。请问你需要哪个地址的信息？", "ground_truth": "海淀区苏州街3号"}
+{"is_correct": false, "response": "您第五次提到的目的地是深圳。如果您需要更多帮助，请告诉我具体问题。", "ground_truth": "成都"}
+{"is_correct": false, "response": "您第三次提到的预订时间是明天下午3点。", "ground_truth": "预订时间是明天下午2点"}
+{"is_correct": false, "response": "您第四次说的目的地是“虹桥火车站”。但您最终确定的目的地是“外滩”。", "ground_truth": "环球港"}
+{"is_correct": true, "response": "您第二次说的是想换成会议室C。", "ground_truth": "会议室C"}
+{"is_correct": false, "response": "您第三次修改时间时说的是后天上午10点半。", "ground_truth": "预订时间是明天下午4点"}
+{"is_correct": true, "response": "在您最终决定要A会议室之前，您选择了C会议室。", "ground_truth": "C会议室"}
+{"is_correct": false, "response": "您最后一次更改的目的地是西安。之前的更改顺序为：北京 → 上海 → 广州 → 深圳 → 成都 → 重庆 → 西安。最终目的地为西安，出发日期为下周三。是否还需要进一步的帮助？", "ground_truth": "目的地是广州"}
+{"is_correct": true, "response": "在你说想去南锣鼓巷之后，你紧接着将目的地改成了北京大学。但是根据你的后续指令，最终目的地被修改为清华大学，再后来是你希望前往清华大学的东门，最后决定去798艺术区。如果你的问题是指紧接南锣鼓巷后的第一个更改地点，请明确具体步骤。若按时间线直接接下来的是北京大学。", "ground_truth": "北京大学"}
+{"is_correct": false, "response": "您第三次说的是去圆明园。", "ground_truth": "首都机场"}
+{"is_correct": true, "response": "您在提到想去成都之后，下一个改成了重庆。", "ground_truth": "重庆"}
+{"is_correct": true, "response": "在你说要去南京之前，你提议的目的地是天津。", "ground_truth": "天津"}
+{"is_correct": true, "response": "在你说要去望京SOHO之前，你当时设定的目的地是奥林匹克森林公园。", "ground_truth": "目的地是奥林匹克森林公园"}
+{"is_correct": false, "response": "在决定去成都之前，您上一个想去的地方是广州。", "ground_truth": "目的地: 广州"}
+{"is_correct": true, "response": "您在决定去厦门之前，上一个提到的城市是成都。", "ground_truth": "成都"}
+{"is_correct": false, "response": "您在提到要去杭州之前，上一个说的是广州。", "ground_truth": "目的地是广州"}
+{"is_correct": false, "response": "您最初是打算去北京。", "ground_truth": "目的地是上海"}
+{"is_correct": true, "response": "您提到的最后一个时间点是明天下午2点半。", "ground_truth": "明天下午2点半"}
+{"is_correct": false, "response": "您第二次修改地址时说的是“未来科技中心B座5楼508室”。", "ground_truth": "幸福花园小区C栋"}
+{"is_correct": true, "response": "您第三次修改时将地址改成了“上海市浦东新区世纪大道100号”。", "ground_truth": "上海市浦东新区世纪大道100号"}
+{"is_correct": true, "response": "在您决定去杭州之后，您紧接着将目的地改回了上海。", "ground_truth": "目的地: 上海"}
+{"is_correct": false, "response": "你第三次设定的会议主题是“新产品Beta版内部评审会”。", "ground_truth": "新产品Alpha版发布会"}

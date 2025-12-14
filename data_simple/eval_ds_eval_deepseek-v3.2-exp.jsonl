@@ -1,0 +1,100 @@
+{"is_correct": false, "response": "公司3号会议室。", "ground_truth": "公司对面的瑞幸咖啡"}
+{"is_correct": false, "response": "成都。", "ground_truth": "厦门"}
+{"is_correct": false, "response": "明天下午4点", "ground_truth": "预订时间:明天下午4点"}
+{"is_correct": true, "response": "广州", "ground_truth": "广州"}
+{"is_correct": false, "response": "深圳", "ground_truth": "成都"}
+{"is_correct": true, "response": "后天上午11点。", "ground_truth": "预订时间是后天上午11点"}
+{"is_correct": false, "response": "东方明珠", "ground_truth": "目的地是东方明珠"}
+{"is_correct": true, "response": "中包。", "ground_truth": "中包"}
+{"is_correct": true, "response": "成都。", "ground_truth": "成都"}
+{"is_correct": false, "response": "广州", "ground_truth": "成都"}
+{"is_correct": false, "response": "B栋205室", "ground_truth": "B栋208室"}
+{"is_correct": true, "response": "深圳", "ground_truth": "深圳"}
+{"is_correct": false, "response": "朝阳区建国路77号。", "ground_truth": "北京市西城区金融大街35号"}
+{"is_correct": true, "response": "明天下午4点", "ground_truth": "明天下午4点"}
+{"is_correct": false, "response": "市场部", "ground_truth": "预订部门=技术部"}
+{"is_correct": false, "response": "颐和园", "ground_truth": "三里屯太古里"}
+{"is_correct": true, "response": "上海", "ground_truth": "上海"}
+{"is_correct": false, "response": "明天上午10点", "ground_truth": "会议时间是明天上午10点"}
+{"is_correct": false, "response": "B栋301。", "ground_truth": "预订的会议室是B栋508"}
+{"is_correct": true, "response": "成都", "ground_truth": "目的地是成都"}
+{"is_correct": true, "response": "Q3增长策略研讨会", "ground_truth": "Q3增长策略研讨会"}
+{"is_correct": false, "response": "杭州", "ground_truth": "目的地是广州"}
+{"is_correct": false, "response": "南京", "ground_truth": "广州"}
+{"is_correct": false, "response": "广州", "ground_truth": "{'目的地': '广州'}"}
+{"is_correct": true, "response": "深圳。", "ground_truth": "深圳"}
+{"is_correct": true, "response": "新产品讨论会", "ground_truth": "新产品讨论会"}
+{"is_correct": true, "response": "广州", "ground_truth": "广州"}
+{"is_correct": true, "response": "上海市浦东新区华夏中路999号A栋", "ground_truth": "上海市浦东新区华夏中路999号A栋"}
+{"is_correct": true, "response": "南锣鼓巷", "ground_truth": "南锣鼓巷"}
+{"is_correct": true, "response": "上海", "ground_truth": "上海"}
+{"is_correct": true, "response": "广州。", "ground_truth": "广州"}
+{"is_correct": true, "response": "明天上午10点。", "ground_truth": "明天上午10点"}
+{"is_correct": false, "response": "成都", "ground_truth": "北京"}
+{"is_correct": false, "response": "西城区金融街17号。", "ground_truth": "北京市东城区安定门西大街5号"}
+{"is_correct": true, "response": "南京", "ground_truth": "南京"}
+{"is_correct": false, "response": "西安", "ground_truth": "广州"}
+{"is_correct": true, "response": "苏州", "ground_truth": "苏州"}
+{"is_correct": true, "response": "西安", "ground_truth": "西安"}
+{"is_correct": false, "response": "第一季度销售复盘", "ground_truth": "Q1市场营销策略会"}
+{"is_correct": true, "response": "北京市海淀区中关村大街59号中国人民大学", "ground_truth": "北京市海淀区中关村大街59号中国人民大学"}
+{"is_correct": true, "response": "成都", "ground_truth": "成都"}
+{"is_correct": false, "response": "上海", "ground_truth": "目的地是上海"}
+{"is_correct": false, "response": "机票", "ground_truth": "booking_item = 机票"}
+{"is_correct": true, "response": "深圳", "ground_truth": "深圳"}
+{"is_correct": true, "response": "B会议室", "ground_truth": "B会议室"}
+{"is_correct": false, "response": "后天上午10点", "ground_truth": "会议室预订时间是后天上午10点"}
+{"is_correct": true, "response": "上海", "ground_truth": "{'目的地': '上海'}"}
+{"is_correct": true, "response": "上海市浦东新区世纪大道100号。", "ground_truth": "上海市浦东新区世纪大道100号"}
+{"is_correct": true, "response": "302会议室", "ground_truth": "302会议室"}
+{"is_correct": false, "response": "下午2点", "ground_truth": "明天下午2点"}
+{"is_correct": true, "response": "深圳", "ground_truth": "目的地是深圳"}
+{"is_correct": false, "response": "广州", "ground_truth": "深圳"}
+{"is_correct": false, "response": "杭州", "ground_truth": "深圳"}
+{"is_correct": true, "response": "广州。", "ground_truth": "广州"}
+{"is_correct": false, "response": "上海", "ground_truth": "南京"}
+{"is_correct": false, "response": "C306", "ground_truth": "meeting_room: D401"}
+{"is_correct": false, "response": "福奈特干洗店", "ground_truth": "目的地是福奈特干洗店"}
+{"is_correct": true, "response": "天津", "ground_truth": "天津"}
+{"is_correct": true, "response": "广州", "ground_truth": "广州"}
+{"is_correct": false, "response": "两间。", "ground_truth": "预订数量是一间"}
+{"is_correct": true, "response": "成都", "ground_truth": "成都"}
+{"is_correct": true, "response": "广州。", "ground_truth": "目的地: 广州"}
+{"is_correct": false, "response": "后天", "ground_truth": "预约后天的C会议室"}
+{"is_correct": false, "response": "明天上午10点", "ground_truth": "明天下午3点半"}
+{"is_correct": true, "response": "深圳。", "ground_truth": "深圳"}
+{"is_correct": false, "response": "广州", "ground_truth": "深圳"}
+{"is_correct": false, "response": "周五上午10点", "ground_truth": "周五下午4点"}
+{"is_correct": true, "response": "杭州", "ground_truth": "杭州"}
+{"is_correct": true, "response": "西安", "ground_truth": "西安"}
+{"is_correct": false, "response": "广州", "ground_truth": "深圳"}
+{"is_correct": true, "response": "广州", "ground_truth": "目的地:广州"}
+{"is_correct": true, "response": "上海→广州→成都→西安→杭州→南京→三亚", "ground_truth": "目的地: 广州"}
+{"is_correct": true, "response": "杭州", "ground_truth": "杭州"}
+{"is_correct": false, "response": "北京大学", "ground_truth": "目的地是北京大学"}
+{"is_correct": true, "response": "成都", "ground_truth": "机票目的地是成都"}
+{"is_correct": false, "response": "深圳市南山区科技南路1号", "ground_truth": "收货地址=深圳市南山区科技南路1号"}
+{"is_correct": true, "response": "北京市朝阳区建国路88号。", "ground_truth": "北京市朝阳区建国路88号"}
+{"is_correct": false, "response": "成都", "ground_truth": "目的地是成都"}
+{"is_correct": true, "response": "海淀区苏州街3号。", "ground_truth": "海淀区苏州街3号"}
+{"is_correct": true, "response": "成都", "ground_truth": "成都"}
+{"is_correct": false, "response": "明天下午2点", "ground_truth": "预订时间是明天下午2点"}
+{"is_correct": false, "response": "上海科技馆", "ground_truth": "环球港"}
+{"is_correct": true, "response": "会议室C", "ground_truth": "会议室C"}
+{"is_correct": false, "response": "后天上午9点", "ground_truth": "预订时间是明天下午4点"}
+{"is_correct": false, "response": "您最终确认预订的是 **A会议室**。", "ground_truth": "C会议室"}
+{"is_correct": false, "response": "成都。", "ground_truth": "目的地是广州"}
+{"is_correct": true, "response": "北京大学", "ground_truth": "北京大学"}
+{"is_correct": true, "response": "首都机场", "ground_truth": "首都机场"}
+{"is_correct": true, "response": "重庆", "ground_truth": "重庆"}
+{"is_correct": true, "response": "天津", "ground_truth": "天津"}
+{"is_correct": true, "response": "奥林匹克森林公园", "ground_truth": "目的地是奥林匹克森林公园"}
+{"is_correct": false, "response": "重庆", "ground_truth": "目的地: 广州"}
+{"is_correct": true, "response": "成都", "ground_truth": "成都"}
+{"is_correct": true, "response": "广州", "ground_truth": "目的地是广州"}
+{"is_correct": false, "response": "上海", "ground_truth": "目的地是上海"}
+{"is_correct": true, "response": "明天下午2点半", "ground_truth": "明天下午2点半"}
+{"is_correct": true, "response": "幸福花园小区C栋", "ground_truth": "幸福花园小区C栋"}
+{"is_correct": true, "response": "上海市浦东新区世纪大道100号", "ground_truth": "上海市浦东新区世纪大道100号"}
+{"is_correct": true, "response": "上海", "ground_truth": "目的地: 上海"}
+{"is_correct": true, "response": "新产品Alpha版发布会", "ground_truth": "新产品Alpha版发布会"}

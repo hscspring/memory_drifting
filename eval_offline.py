@@ -4,21 +4,17 @@ import pnlp
 from tqdm import tqdm
 from loguru import logger
 
-
-from utils import check_answer, build_messages
-from data_creator import do_llm_call
+from utils import check_answer
 
 
-model = sys.argv[1]
-model_tag = model.split("/")[-1]
+file = sys.argv[1]
+model_tag = file.split("/")[-1].replace("eval_ds_eval_", "").replace(".jsonl", "")
 
 
 
 async def run_eval(item):
-    msgs = build_messages(item)
     gt = item["ground_truth"]
-    output, reasoning = await do_llm_call(model, 0.7, msgs, "policy", 1024, False)
-    response = output.strip()
+    response = item["response"]
     is_correct = await check_answer(response, gt)
     res = {
         "is_correct": is_correct,
@@ -29,7 +25,6 @@ async def run_eval(item):
 
 
 async def main():
-    file = "data_simple/eval_ds_human.jsonl"
     ds = pnlp.read_file_to_list_dict(file)
     results = []
     for item in tqdm(ds):

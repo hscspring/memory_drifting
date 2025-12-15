@@ -172,8 +172,8 @@ async def main():
     else:
         cache = {}
 
-    N_PROC = 1
-    N_DATA = 1
+    N_PROC = 2
+    N_DATA = 5
     N_BATCH = N_DATA // N_PROC
     semaphore = asyncio.Semaphore(N_PROC)
     for batchi, batch in enumerate(range(N_BATCH)):

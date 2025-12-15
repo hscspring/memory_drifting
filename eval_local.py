@@ -6,7 +6,7 @@ from loguru import logger
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 
-from utils import check_answer, build_messages
+from utils import check_answer, build_messages, build_messages_context
 
 
 model_id = "/backup/lanzhenzhongLab/public/models/Qwen2.5-7B-Instruct"
@@ -23,7 +23,7 @@ model = AutoModelForCausalLM.from_pretrained(
 )
 
 def build_inputs(item, enable_thinking: bool = False):
-    messages = build_messages(item)
+    messages = build_messages_context(item)
     text = tokenizer.apply_chat_template(
         messages,
         tokenize=False,

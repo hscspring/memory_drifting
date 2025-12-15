@@ -5,7 +5,7 @@ from tqdm import tqdm
 from loguru import logger
 
 
-from utils import check_answer, build_messages
+from utils import check_answer, build_messages, build_messages_context
 from data_creator import do_llm_call
 
 
@@ -15,7 +15,7 @@ model_tag = model.split("/")[-1]
 
 
 async def run_eval(item):
-    msgs = build_messages(item)
+    msgs = build_messages_context(item)
     gt = item["ground_truth"]
     output, reasoning = await do_llm_call(model, 0.7, msgs, "policy", 1024, False)
     response = output.strip()

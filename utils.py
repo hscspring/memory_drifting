@@ -34,3 +34,26 @@ def build_messages(item):
         messages.append({"role": "assistant", "content": llm_output})
     messages.append({"role": "user", "content": q})
     return messages
+
+
+def build_messages_context(item):
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."}
+    ]
+    dialogue_turns = item["dialogue_turns"]
+    q = item["test_query"] + "\n\n无需解释，直接回答。"
+    history = []
+    for turn in dialogue_turns:
+        user_input = turn["user_input"]
+        llm_output = turn["llm_output"]
+        history.append(f"User: {user_input}\nAssistant: {llm_output}")
+    context = "\n".join(history)
+    prompt = f"""请根据给定的对话历史，回答下方的问题。
+## 对话历史
+{context}
+
+## 问题
+User: {q}
+"""
+    messages.append({"role": "user", "content": prompt})
+    return messages

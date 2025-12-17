@@ -6,12 +6,12 @@ from loguru import logger
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 
-from utils import check_answer, build_messages, build_messages_context
+from utils import check_answer, build_messages, build_messages_context, build_message_with_reasoning_prompt, build_message_with_prompt
 
 
 model_id = "/backup/lanzhenzhongLab/public/models/Qwen2.5-7B-Instruct"
-model_id = "/backup/lanzhenzhongLab/public/models/Qwen2.5-14B-Instruct"
-model_id = "/backup/lanzhenzhongLab/public/models/Qwen3-4B-Instruct-2507"
+# model_id = "/backup/lanzhenzhongLab/public/models/Qwen2.5-14B-Instruct"
+# model_id = "/backup/lanzhenzhongLab/public/models/Qwen3-4B-Instruct-2507"
 model_id = "/backup/lanzhenzhongLab/public/models/Qwen3-8B"
 
 model_tag = model_id.split("/")[-1]
@@ -23,7 +23,7 @@ model = AutoModelForCausalLM.from_pretrained(
 )
 
 def build_inputs(item, enable_thinking: bool = False):
-    messages = build_messages_context(item)
+    messages = build_message_with_reasoning_prompt(item)
     text = tokenizer.apply_chat_template(
         messages,
         tokenize=False,
@@ -50,6 +50,7 @@ async def run_eval(item, enable_thinking: bool = False):
     ]
     thinking_content = ""
     response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+    logger.info(f"Model response: {response}")
     if enable_thinking:
         tmp = response.split("</think>")
         if len(tmp) != 2:

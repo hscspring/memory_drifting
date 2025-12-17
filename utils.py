@@ -20,10 +20,44 @@ The output format is strictly one word: "Yes" or "No" without any additional tex
     return output.strip().lower() == "yes" and ground_truth_lower in response_lower
 
 
+def build_message_with_reasoning_prompt(item):
+    prompt = """You are a helpful assistant. 
+When answering the user's question, first think step by step and pay attention to the statements/facts made in the conversation history."""
+    prompt = """You are a helpful and careful assistant specialized in multi-turn task-oriented dialogues.
+Your goal is to help the user while accurately tracking all facts provided in the conversation history.
+
+Instructions:
+1. When answering a user question, first reason step by step.
+2. Pay careful attention to all statements and facts in the conversation history.
+3. Identify any updates, modifications, or conflicting information provided by the user across multiple turns.
+4. Maintain a current, consistent representation of the user's facts (e.g., addresses, contact information, preferences).
+5. If you detect conflicting or outdated facts, prioritize the most recent user-provided information, and explicitly note any changes.
+6. Clearly indicate which facts you are using to answer the current query.
+7. Provide answers that are accurate, concise, and grounded in the conversation history.
+
+Return your output in a structured format that separates:
+- Current Answer
+- Facts Used
+- Notes on any conflicts or updates
+
+Use this structure consistently for each user query.
+"""
+    return _build_messages(item, prompt)
+
+
+def build_message_with_prompt(item):
+    prompt = """You are a helpful assistant. 
+When answering the user's question, pay attention to the statements/facts made in the conversation history."""
+    return _build_messages(item, prompt)
+
 
 def build_messages(item):
+    return _build_messages(item, "You are a helpful assistant.")
+
+
+def _build_messages(item, system_prompt):
     messages = [
-        {"role": "system", "content": "You are a helpful assistant."}
+        {"role": "system", "content": system_prompt}
     ]
     dialogue_turns = item["dialogue_turns"]
     q = item["test_query"] + "\n\n无需解释，直接回答。"

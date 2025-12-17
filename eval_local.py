@@ -9,7 +9,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from utils import check_answer, build_messages, build_messages_context, build_message_with_reasoning_prompt, build_message_with_prompt
 
 
-model_id = "/backup/lanzhenzhongLab/public/models/Qwen2.5-7B-Instruct"
+# model_id = "/backup/lanzhenzhongLab/public/models/Qwen2.5-7B-Instruct"
 # model_id = "/backup/lanzhenzhongLab/public/models/Qwen2.5-14B-Instruct"
 # model_id = "/backup/lanzhenzhongLab/public/models/Qwen3-4B-Instruct-2507"
 model_id = "/backup/lanzhenzhongLab/public/models/Qwen3-8B"
@@ -63,7 +63,8 @@ async def run_eval(item, enable_thinking: bool = False):
     res = {
         "is_correct": is_correct,
         "response": response,
-        "ground_truth": gt
+        "ground_truth": gt,
+        "thinking": thinking_content,
     }
     return res
 

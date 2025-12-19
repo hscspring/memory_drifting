@@ -4,6 +4,10 @@
 *.xlsx
 *.csv
 *.txt
+wandb/
+checkpoints/
+tensorboard_log/
+*.jsonl
 
 __pycache__/
 *.ipynb

@@ -42,3 +42,9 @@ We reinterpret the KV cache not as a growing buffer of past token representation
 我们不是在让模型“记住 token”，而是在训练一个网络，把对话状态直接映射成Transformer 每一层最有用的中间表示——KV Cache。
 一旦 KV Cache 被构造出来，Transformer 就会在 attention 计算中天然地使用它，无需显式回放历史文本。
 构造了一个新的、状态驱动的 KV 源，并把它接到了 Transformer 原本的 attention 入口上。
+
+
+
+During inference, the slot selector is not explicitly applied.
+Memory selection is implicitly performed by the LLM’s attention over the injected KV cache.
+The selector is trained only as an auxiliary supervision signal to shape memory representations for effective attention-based retrieval.

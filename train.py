@@ -1,3 +1,4 @@
+from typing import Dict, Any
 import os
 from datetime import datetime
 
@@ -5,11 +6,10 @@ import torch
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from torch.amp import autocast, GradScaler
+from torch.amp import autocast
 
 from transformers import AutoTokenizer
 from tqdm import tqdm
-import wandb
 from datasets import load_dataset
 from torch.utils.tensorboard import SummaryWriter
 
@@ -22,93 +22,113 @@ from model_utils import save_checkpoint
 
 log_dir = os.path.join(
     "tensorboard_log/",
-    datetime.now().strftime("%Y%m%d-%H%M%S")
+    datetime.now().strftime("%Y%m%d-%H%M%S") + "grok2"
 )
 
 writer = SummaryWriter(log_dir=log_dir)
 
 
-def train_one_dialogue(model, batch, optimizer):
-    m_prev = model.m_0 # 初始记忆向量
-    total_dialogue_loss = 0
-    sims_active = []
-    sims_passive = []
-    gates_active = []
-    gates_passive = []
-    loss_lst = []
 
-    # model.base_model.gradient_checkpointing_enable()
-    for idx, turn in enumerate(batch["dialogue_turns"]):
-        input_ids = turn["input_ids"].unsqueeze(0).to(model.device)
-        labels = turn["labels"].unsqueeze(0).to(model.device)
-        target_ids = turn["target_ids"].unsqueeze(0).to(model.device)
-        negative_state_ids = turn["negative_state_ids"].to(model.device)
-        update_flag = turn["update_flag"].to(model.device)
-
-        # 1. 提取语义目标 E_target
-        with torch.no_grad():
-            target_outputs = model.base_model.model(target_ids)
-            e_target = target_outputs.last_hidden_state[:, -1, :].detach()
-            negative_outputs = model.base_model.model(negative_state_ids)
-            e_negative = negative_outputs.last_hidden_state[:, -1, :].detach()
-
-        # 2. 前向传播
-        with autocast(device_type="cuda", dtype=torch.bfloat16):
-            loss_dict, m_new, g_logits = model(
-                input_ids, labels, m_prev, 
-                update_flag, e_target, e_negative
-            )
-            loss_lst.append(loss_dict)
-            llm_loss = loss_dict["llm_loss"]
-            target_loss = loss_dict["target_loss"]
-            probe_loss = loss_dict["probe_loss"]
-            loss = llm_loss + 1.0 * target_loss + 0.01 * probe_loss
-            total_dialogue_loss += loss
-        # torch.cuda.reset_peak_memory_stats()
-        # print("max mem MB:", torch.cuda.max_memory_allocated() / 1024**2)
-
-        with torch.no_grad():
-            sim = F.cosine_similarity(
-                F.normalize(m_new, dim=-1),
-                F.normalize(e_target, dim=-1),
-                dim=-1
-            ).item()
-            g_val = torch.sigmoid(g_logits).item()
-            if turn["update_flag"] > 0.5:
-                sims_active.append(sim)
-                gates_active.append(g_val)
-            else:
-                sims_passive.append(sim)
-                gates_passive.append(g_val)
-
-        # 3. 记忆流转 (detach 防止跨轮梯度爆炸)
-        m_prev = m_new.detach()
-
-    # 4. 反向传播与更新
-    # 均摊到每一轮的平均 loss
-    avg_loss = total_dialogue_loss / len(batch["dialogue_turns"])
-    avg_loss.backward()
-
-    # 梯度裁剪，防止 Transformer 训练中常见的梯度爆炸
-    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+def train_one_dialogue(model: CASSKVInjectionModel, batch: Dict[str, Any], optimizer) -> tuple[Dict, Dict]:
+    """
+    训练一个完整对话（所有 turns）
+    batch["dialogue_turns"] 来自你的 CASSKVSequentialCollator
+    """
+    device = model.device
     
+    # 初始化记忆状态
+    m_prev = model.m_0.detach().clone().to(device)          # (1, history_len, hidden)
+    current_len = torch.tensor([1], device=device)          # 初始只有最新槽位（空状态）
+    
+    total_loss = 0.0
+    loss_records = []  # 记录每 turn 的各项 loss
+    
+    # 用于监控指标
+    sims_active = []    # update turn 中 M_new[-1] 与权威 target 的余弦相似度
+    gates_active = []   # update turn 中 probe 预测的 gate 值（sigmoid后）
+    gates_pred_active = []  # probe 实际预测的概率（用于看是否学得准）
+
+    for turn in batch["dialogue_turns"]:
+        input_ids = turn["input_ids"].unsqueeze(0).to(device)      # (1, seq_len)
+        labels = turn["labels"].unsqueeze(0).to(device)            # (1, seq_len)
+        update_flag = turn["update_flag"].to(device)               # (1,)
+
+        # 准备监督信号
+        if update_flag.item() > 0.5:  # update turn
+            slot_label = None
+            target_ids = turn["target_ids"].unsqueeze(0).to(device)
+            negative_state_ids = turn["negative_state_ids"].to(device)
+            with torch.no_grad():
+                # 1, H
+                e_target = model.base_model.model(target_ids).last_hidden_state[:, -1, :].detach()
+                # num_neg, H
+                negative_embeds = model.base_model.model(negative_state_ids).last_hidden_state[:, -1, :].detach()
+        else:  # query turn
+            slot_label = turn["slot_label"].to(device) if turn["slot_label"] is not None else None
+            e_target = None
+            negative_embeds = None
+
+        # 前向传播
+        with autocast(device_type="cuda", dtype=torch.bfloat16):
+            loss_dict, m_new, new_len, g_logits = model(
+                input_ids=input_ids,
+                labels=labels,
+                m_prev=m_prev,
+                current_len=current_len,
+                update_flag=update_flag,
+                target_embed=e_target,
+                negative_embeds=negative_embeds,
+                slot_label=slot_label,
+            )
+
+        # 加权总 loss（可根据实验调整系数）
+        loss = (
+            loss_dict["llm_loss"]      * 1.0 +
+            loss_dict["target_loss"]   * 10.0 +
+            loss_dict["select_loss"]   * 3.0 +
+            loss_dict["probe_loss"]    * 1.0
+        )
+        total_loss += loss
+        loss_records.append({k: v.item() for k, v in loss_dict.items()})
+
+        # 更新记忆状态（detach 防止梯度跨 turn 爆炸）
+        m_prev = m_new.detach()
+        current_len = new_len.detach()
+
+        # ============ 指标收集（仅 update turn） ============
+        if update_flag.item() > 0.5:
+            with torch.no_grad():
+                # 最新状态与权威 target 的余弦相似度
+                sim = F.cosine_similarity(
+                    F.normalize(m_new[:, -1, :], dim=-1),
+                    F.normalize(e_target, dim=-1),
+                    dim=-1
+                ).cpu().item()
+                sims_active.append(sim)
+
+                g_prob = torch.sigmoid(g_logits).cpu().item()
+                gates_pred_active.append(g_prob)
+                # 真实 gate（teacher forcing 用的是 1.0）
+                gates_active.append(1.0)  # 因为 update turn 强制更新
+
+    # =============== 反向传播 ===============
+    avg_loss = total_loss / len(batch["dialogue_turns"])
+    avg_loss.backward()
+    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
     optimizer.step()
     optimizer.zero_grad()
 
+    # =============== 汇总 losses ===============
+    losses = {k: sum(d[k] for d in loss_records) / len(loss_records) for k in loss_records[0]}
+    losses["total_loss"] = avg_loss.item()
+
+    # =============== 汇总 metrics ===============
     metrics = {
-        "avg_sim_active": sum(sims_active)/len(sims_active) if sims_active else 0,
-        "avg_sim_passive": sum(sims_passive)/len(sims_passive) if sims_passive else 0,
-        "avg_gate_active": sum(gates_active) / len(gates_active) if gates_active else 0,
-        "avg_gate_passive": sum(gates_passive) / len(gates_passive) if gates_passive else 0,
-    }
-    metrics["num_active_updates"] = len(sims_active)
-    metrics["num_passive_updates"] = len(sims_passive)
-    
-    losses = {
-        "loss": avg_loss.item(),
-        "llm_loss": sum([v["llm_loss"] for v in loss_lst])/len(loss_lst) if loss_lst else 0,
-        "target_loss": sum([v["target_loss"] for v in loss_lst])/len(loss_lst) if loss_lst else 0,
-        "probe_loss": sum([v["probe_loss"] for v in loss_lst])/len(loss_lst) if loss_lst else 0,
+        "num_turns": len(batch["dialogue_turns"]),
+        "num_updates": len(sims_active),
+        "avg_sim_active": sum(sims_active) / len(sims_active) if sims_active else 0.0,
+        "avg_gate_pred_active": sum(gates_pred_active) / len(gates_pred_active) if gates_pred_active else 0.0,
+        "current_len_final": current_len.item(),
     }
     return losses, metrics
 
@@ -117,7 +137,7 @@ def train():
     # 1. 配置参数
     lr = 5e-5 # 建议初始微调可以稍微大一点，因为基座冻结了
     model_id = "/backup/lanzhenzhongLab/public/models/Qwen2.5-7B-Instruct"
-    data_path = "mocker/kv_mock_singleslot_2000.jsonl"
+    data_path = "mocker/mock_dialogues_multi_domain_istrain=True.json"
     save_path = "./checkpoints/cass_kv_qwen25_v1"
     os.makedirs(save_path, exist_ok=True)
 
@@ -144,14 +164,14 @@ def train():
     model.train()
 
     # 3. 训练循环
-    epochs = 1
+    epochs = 2
     global_step = 0
 
     for epoch in range(epochs):
         pbar = tqdm(train_loader, desc=f"Epoch {epoch}")
         for batch in pbar:
             losses, metrics = train_one_dialogue(model, batch, optimizer)
-            loss_val = losses["loss"]
+            loss_val = losses["total_loss"]
             pbar.set_postfix({"loss": f"{loss_val:.4f}"})
             if global_step % 10 == 0:
                 log_data = {

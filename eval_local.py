@@ -6,13 +6,19 @@ from loguru import logger
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 
-from utils import check_answer, build_messages, build_messages_context, build_message_with_reasoning_prompt, build_message_with_prompt
+from utils import (
+    check_answer, 
+    build_messages, 
+    build_messages_context, 
+    build_message_with_reasoning_prompt, 
+    build_message_with_prompt,
+)
 
 
-# model_id = "/backup/lanzhenzhongLab/public/models/Qwen2.5-7B-Instruct"
+model_id = "/backup/lanzhenzhongLab/public/models/Qwen2.5-7B-Instruct"
 # model_id = "/backup/lanzhenzhongLab/public/models/Qwen2.5-14B-Instruct"
 # model_id = "/backup/lanzhenzhongLab/public/models/Qwen3-4B-Instruct-2507"
-model_id = "/backup/lanzhenzhongLab/public/models/Qwen3-8B"
+# model_id = "/backup/lanzhenzhongLab/public/models/Qwen3-8B"
 
 model_tag = model_id.split("/")[-1]
 tokenizer = AutoTokenizer.from_pretrained(model_id)
@@ -23,7 +29,7 @@ model = AutoModelForCausalLM.from_pretrained(
 )
 
 def build_inputs(item, enable_thinking: bool = False):
-    messages = build_message_with_reasoning_prompt(item)
+    messages = build_messages(item)
     text = tokenizer.apply_chat_template(
         messages,
         tokenize=False,
@@ -71,16 +77,22 @@ async def run_eval(item, enable_thinking: bool = False):
 
 async def main():
     file = "data_simple/eval_ds_human.jsonl"
-    ds = pnlp.read_file_to_list_dict(file)
+    file = "mocker/mock_dialogues_multi_domain_istrain_0.json"
+    if file.endswith("json"):
+        suffix = "json"
+        ds = pnlp.read_json(file)
+    else:
+        suffix = "jsonl"
+        ds = pnlp.read_file_to_list_dict(file)
     results = []
     for item in tqdm(ds):
-        result = await run_eval(item, True)
+        result = await run_eval(item, False)
         results.append(result)
 
     n_correct = sum(1 for r in results if r["is_correct"])
     accuracy = n_correct / len(results)
     print(f"Accuracy: {accuracy:.4f} ({n_correct}/{len(results)})")
-    out_file = file.replace(".jsonl", f"_eval_{model_tag}.jsonl")
+    out_file = file.replace(f".{suffix}", f"_eval_{model_tag}.{suffix}")
     pnlp.write_list_dict_to_file(out_file, results)
     print(f"Saved to {out_file}")
 

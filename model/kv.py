@@ -8,15 +8,6 @@ from transformers import AutoModelForCausalLM
 from transformers.cache_utils import DynamicCache
 
 
-def compute_target_loss(m_new, target_embed, negatives=None, alpha=1.0):
-    # 直接 MSE，不 normalize
-    mse_loss = F.mse_loss(m_new, target_embed)
-
-    if negatives is not None:
-        neg_loss = F.mse_loss(m_new.expand_as(negatives), negatives, reduction='mean')
-        return mse_loss + 0.1 * neg_loss  # 小权重推开负样本
-    return mse_loss
-
 
 def compute_target_loss_contrastive(m_new, target_embed, negatives=None, alpha=0.5, tau=0.05):
     """
@@ -49,6 +40,15 @@ def compute_target_loss_contrastive(m_new, target_embed, negatives=None, alpha=0
     return alpha * mse_loss + (1 - alpha) * contrastive_loss
 
 
+def compute_target_loss(m_new, target_embed, negatives=None, alpha=1.0):
+    # 直接 MSE，不 normalize
+    mse_loss = F.mse_loss(m_new, target_embed)
+
+    if negatives is not None:
+        neg_loss = F.mse_loss(m_new.expand_as(negatives), negatives, reduction='mean')
+        return mse_loss + 0.1 * neg_loss  # 小权重推开负样本
+    return mse_loss
+
 class KVProjector(nn.Module):
     def __init__(self, config, use_layernorm=True):
         super().__init__()
@@ -69,14 +69,6 @@ class KVProjector(nn.Module):
 
         if use_layernorm:
             self.ln = nn.LayerNorm(self.hidden_size)
-
-        # 参数初始化
-        for mlp in self.projections:
-            for layer in mlp:
-                if isinstance(layer, nn.Linear):
-                    nn.init.xavier_uniform_(layer.weight)
-                    if layer.bias is not None:
-                        nn.init.zeros_(layer.bias)
 
     def forward(self, m_t: torch.Tensor):
         """
@@ -115,19 +107,42 @@ class SlotSelector(nn.Module):
             nn.Linear(hidden_size, 1)
         )
 
-    def forward(self, r_agg: torch.Tensor, m_read: torch.Tensor):
+    def forward(
+        self, 
+        r_agg: torch.Tensor, 
+        m_read: torch.Tensor,
+        time_emb: torch.Tensor,
+    ):
         """
         r_agg: (B, 1, H)
         m_read: (B, history_len, H)
+        time_emb: (B, history_len, H)
         返回:
             slot_logits: (B, history_len)
         """
+        B, L, H = m_read.shape
         r = self.r_proj(r_agg)               # (B,1,H)
         m = self.m_proj(m_read)              # (B,history_len,H)
 
-        h = r + m                             # (B, history_len, H)
+        h = r + m + time_emb                             # (B, history_len, H)
         slot_logits = self.output(h).squeeze(-1)    # (B, history_len)
         return slot_logits
+
+
+def _init_transformer_style(module, std=0.02):
+    for m in module.modules():
+        if isinstance(m, nn.Linear):
+            nn.init.normal_(m.weight, std=std)
+            if m.bias is not None:
+                nn.init.zeros_(m.bias)
+
+
+def init_kv_projector(module, std=0.01):
+    for m in module.modules():
+        if isinstance(m, nn.Linear):
+            nn.init.normal_(m.weight, std=std)
+            if m.bias is not None:
+                nn.init.zeros_(m.bias)
 
 
 class CASSKVInjectionModel(nn.Module):
@@ -150,8 +165,7 @@ class CASSKVInjectionModel(nn.Module):
         self.history_projector = KVProjector(self.config).to(dtype=dtype)  # 专用于检索状态
 
         self.probe = nn.Linear(2 * self.hidden_size, 1, dtype=dtype)
-        
-        # self.synthesis = nn.GRUCell(self.hidden_size, self.hidden_size).to(dtype=dtype)
+
         self.synthesis = nn.Sequential(
             nn.Linear(self.hidden_size * 2, self.hidden_size),
             nn.GELU(),
@@ -165,6 +179,19 @@ class CASSKVInjectionModel(nn.Module):
 
         self.time_emb = nn.Embedding(self.history_len, self.hidden_size, dtype=dtype)
         nn.init.normal_(self.time_emb.weight, std=0.02)
+
+        self.ordinal_emb = nn.Embedding(self.history_len, self.hidden_size, dtype=dtype)
+        nn.init.normal_(self.ordinal_emb.weight, std=0.02)
+        
+        self.read_content_proj = nn.Linear(self.hidden_size, self.hidden_size, dtype=dtype)
+        
+        init_kv_projector(self.latest_projector, 0.01)
+        init_kv_projector(self.history_projector, 0.01)
+        _init_transformer_style(self.probe, 0.01)
+        _init_transformer_style(self.synthesis)
+        _init_transformer_style(self.slot_selector)
+        _init_transformer_style(self.read_content_proj)
+
     
     @property
     def device(self):
@@ -217,10 +244,13 @@ class CASSKVInjectionModel(nn.Module):
         probe_loss = F.binary_cross_entropy_with_logits(g_logits.squeeze(-1), update_flag.unsqueeze(-1)) # (1, ), (1, )
         loss_dict["probe_loss"] = probe_loss # () scalar
 
+        update_index = torch.clamp(current_len - 1, min=0, max=self.history_len - 1)
+        ordinal = self.ordinal_emb(update_index)
+
         # Teacher forcing：使用真实 update_flag 更新记忆（训练稳定）
         g_signal = update_flag.unsqueeze(-1)  # (1,)
         m_candidate = self.synthesis(torch.cat([r_agg, latest_m], dim=-1)) # (1, H)
-        m_new_latest = g_signal * m_candidate + (1 - g_signal) * latest_m # (1, H)
+        m_new_latest = g_signal * (m_candidate + ordinal) + (1 - g_signal) * latest_m # (1, H)
 
         # 更新队列：向右 roll，最新位置写入新状态
         m_new = torch.roll(m_prev, shifts=-1, dims=1) # (1, history_len, H)
@@ -244,16 +274,20 @@ class CASSKVInjectionModel(nn.Module):
         # ================= 3. Query turn：slot 选择 + KV 注入 =================
         if update_flag.item() < 0.5:
             positions = torch.arange(self.history_len, device=device)  # (history_len,)
-            time_bias = self.time_emb(positions)                        # (history_len, H)
-            m_read = m_new.detach() + time_bias.unsqueeze(0) # (1, history_len, H)
+            time_bias = self.time_emb(positions).unsqueeze(0)                        # (history_len, H)
+            m_read = (
+                m_new.detach() 
+                # + 0.5 * self.read_content_proj(m_new.detach())
+            )
+            # (1, history_len, H)
 
-            # slot_logits = self.slot_selector(r_agg)  # (1, history_len)
-            slot_logits = self.slot_selector(r_agg.unsqueeze(1), m_read)  # (1, history_len)
+            slot_logits = self.slot_selector(r_agg.unsqueeze(1), m_read, time_bias)  # (1, history_len)
             # 只在前 current_len 个位置上计算 softmax（防止无效位置干扰）
             mask = torch.arange(self.history_len, device=device).unsqueeze(0) < current_len
             slot_logits = slot_logits.masked_fill(~mask, -1e9)
-            slot_logits = slot_logits / 8.0
+            # slot_logits = slot_logits / 8.0
             slot_probs = F.softmax(slot_logits, dim=-1)
+            print(f"slot_prob: {[f'{i:.4f}' for i in slot_probs[0]]}, index: {slot_probs.argmax().item()}, slot_label: {slot_label}")
 
             # 训练 loss
             if slot_label is not None:
@@ -283,20 +317,20 @@ class CASSKVInjectionModel(nn.Module):
                 past_key_values.update(k_combined, v_combined, layer_idx)
 
             # 再次 forward 生成 logits
-            outputs_gen = self.base_model.model(
-                # inputs_embeds=token_embeds,
-                input_ids=input_ids,
-                past_key_values=past_key_values,
-                use_cache=False,
-            )
-            logits = self.base_model.lm_head(outputs_gen.last_hidden_state)
-            shift_labels = labels[..., 1:].contiguous()
-            shift_logits = logits[..., :-1, :].contiguous()
-            llm_loss = F.cross_entropy(
-                shift_logits.view(-1, shift_logits.size(-1)),
-                shift_labels.view(-1),
-                ignore_index=-100
-            )
-            loss_dict["llm_loss"] = llm_loss
+            # outputs_gen = self.base_model.model(
+            #     # inputs_embeds=token_embeds,
+            #     input_ids=input_ids,
+            #     past_key_values=past_key_values,
+            #     use_cache=False,
+            # )
+            # logits = self.base_model.lm_head(outputs_gen.last_hidden_state)
+            # shift_labels = labels[..., 1:].contiguous()
+            # shift_logits = logits[..., :-1, :].contiguous()
+            # llm_loss = F.cross_entropy(
+            #     shift_logits.view(-1, shift_logits.size(-1)),
+            #     shift_labels.view(-1),
+            #     ignore_index=-100
+            # )
+            # loss_dict["llm_loss"] = llm_loss
 
         return loss_dict, m_new.detach(), new_len, g_logits

@@ -66,14 +66,17 @@ def sample_negatives(values, pos, k=3):
     return negatives
 
 
-def gen_write_turn(turn_id, domain, slot, value, values):
+def gen_write_turn(turn_id, domain, slot, value, values, num_writes):
+    state = f"场景：{domain}\n更新序号：{turn_id-1}\n当前{slot}：{value}"
+    negs = sample_negatives(values, value)
+    negs = [f"场景：{domain}\n更新序号：{random.choice([i for i in range(num_writes) if i != turn_id])}\n当前{slot}：{v}" for v in negs]
     return {
         "turn_id": turn_id,
         "user_input": f"{domain}场景下，当前{slot}是{value}。",
         "llm_output": f"已记录，{slot}更新为{value}。",
         "update_flag": 1,
-        "state_desc": value,
-        "negative_state_desc": sample_negatives(values, value),
+        "state_desc": state,
+        "negative_state_desc": negs,
         "slot_label": None,
     }
 
@@ -131,7 +134,7 @@ def generate_dialogue(dialogue_id: int, is_train: bool = True):
 
     # 写入轮
     for v in chosen_values:
-        turns.append(gen_write_turn(turn_id, domain, slot, v, values))
+        turns.append(gen_write_turn(turn_id, domain, slot, v, values, num_writes))
         history.append(v)
         turn_id += 1
 
@@ -170,7 +173,7 @@ def main():
         is_train = False
     
     data = [generate_dialogue(i, is_train) for i in range(num_dialogues)]
-    out_file = f"mock_dialogues_multi_domain_istrain={is_train}.json"
+    out_file = f"mock_dialogues_multi_domain_istrain_{tag}.json"
     with open(out_file, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 

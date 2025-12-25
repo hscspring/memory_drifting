@@ -64,6 +64,7 @@ def _build_messages(item, system_prompt):
     ]
     dialogue_turns = item["dialogue_turns"]
     q = item["test_query"] + "\n\n无需解释，直接回答。"
+    q = "当前状态是什么？\n\n无需解释，直接回答。"
     for turn in dialogue_turns:
         user_input = turn["user_input"]
         llm_output = turn["llm_output"]
@@ -79,6 +80,7 @@ def build_messages_context(item):
     ]
     dialogue_turns = item["dialogue_turns"]
     q = item["test_query"] + "\n\n无需解释，直接回答。"
+    # q = "当前状态是什么？\n\n无需解释，直接回答。"
     history = []
     for turn in dialogue_turns:
         user_input = turn["user_input"]

@@ -43,7 +43,7 @@ class CASSEvaluator:
             )
             g_prob = torch.sigmoid(g_logits)
             g_signal = (g_prob > TH).float()  # (1, 1)
-            print(f"g_signal: {g_signal}")
+            # print(f"g_signal: {g_signal}")
 
         # ==================== 处理最终 test query ====================
         test_query = item.get("test_query", "当前状态是什么？")
@@ -59,9 +59,12 @@ class CASSEvaluator:
         # ---- slot selection（hard top-1）----
         positions = torch.arange(self.model.history_len, device=device)
         time_bias = self.model.time_emb(positions).unsqueeze(0)
-        m_read = m_prev.detach() + time_bias
+        m_read = (
+            m_prev.detach() 
+            # + 0.5 * self.model.read_content_proj(m_prev.detach())
+        )
 
-        slot_logits = self.model.slot_selector(r_agg.unsqueeze(1), m_read)  # (1, history_len)
+        slot_logits = self.model.slot_selector(r_agg.unsqueeze(1), m_read, time_bias)  # (1, history_len)
         mask = torch.arange(self.model.history_len, device=device).unsqueeze(0) < current_len
         slot_logits = slot_logits.masked_fill(~mask, -1e9)
         slot_probs = F.softmax(slot_logits, dim=-1)
@@ -70,10 +73,6 @@ class CASSEvaluator:
             dim=1,
             index=selected_idx.unsqueeze(-1).expand(-1, -1, m_prev.size(-1))
         )
-        # Debug 打印（正式跑完可以删）
-        print("Slot probs top5:", slot_probs.topk(5, dim=-1))
-        print("Current len:", current_len.item())
-        print("Selected idx:", selected_idx.item())
 
         latest_kv = self.model.latest_projector(m_prev[:, -1:, :])
         history_kv = self.model.history_projector(selected_m)
@@ -99,9 +98,10 @@ class CASSEvaluator:
             input_ids=query_ids,
             past_key_values=past_key_values,
             position_ids=position_ids,
-            max_new_tokens=128,
+            max_new_tokens=64,
             do_sample=False,
-            repetition_penalty=1.2,
+            temperature=0.2,
+            repetition_penalty=1.5,
             pad_token_id=self.tokenizer.eos_token_id,
             eos_token_id=self.tokenizer.eos_token_id,
             use_cache=True,
@@ -112,7 +112,7 @@ class CASSEvaluator:
         )
         return {
             "prediction": output_text,
-            "probe_prob": g_pbob,
+            "probe_prob": g_prob,
             "slot_prob": slot_probs,
             "selected_idx": selected_idx.item(),
         }
@@ -120,7 +120,7 @@ class CASSEvaluator:
 
 async def main():
     model_id = "/backup/lanzhenzhongLab/public/models/Qwen2.5-7B-Instruct"
-    adapter_path = "./checkpoints/cass_kv_qwen25_v1/step_1400/cass_adapter.pt"
+    adapter_path = "./checkpoints/cass_kv_qwen25_v1/step_1800/cass_adapter.pt"
     model_tag = "qwen25_7b_ft"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -137,26 +137,38 @@ async def main():
     model.eval()
 
     tokenizer = AutoTokenizer.from_pretrained(model_id, truncation_side="left")
-    evaluator = CASSEvaluator(model, tokenizer, use_ground_state=False)
+    evaluator = CASSEvaluator(model, tokenizer)
 
     file = "data_simple/eval_ds_human.jsonl"
-    ds = pnlp.read_file_to_list_dict(file)
+    file = "mocker/mock_dialogues_multi_domain_istrain_0.json"
+    if file.endswith("json"):
+        ds = pnlp.read_json(file)
+    else:
+        ds = pnlp.read_file_to_list_dict(file)
 
     results = []
     correct = 0
     for item in tqdm(ds):
-        gt = item.get("ground_truth", "")
+        gt = item["ground_truth"]
+        slot_label = item["slot_label"]
+        test_query = item["test_query"]
         response = evaluator.evaluate_item(item)
+        pred = response["prediction"]
+        slot_label_pred= response["selected_idx"]
+        slot_prob = response["slot_prob"]
 
         print("\n\n" + "=" * 80)
-        print(f"GT: {gt!r}")
-        print(f"Response: {response!r}")
+        print(f"Query: {test_query}")
+        print(f"GroundTruth: slot_label={slot_label}, answer={gt!r}")
+        print(f"Prediction:  slot_label={slot_label_pred}, answer={pred!r}")
+        print(f"slot_prob: {slot_prob}")
         print("=" * 80)
 
-        is_correct = await check_answer(response, gt)
+
+        is_correct = False # await check_answer(pred, gt)
         res = {
             "is_correct": is_correct,
-            "response": response,
+            "response": pred,
             "ground_truth": gt,
             "thinking": "",
         }

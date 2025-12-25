@@ -137,7 +137,7 @@ def train():
     # 1. 配置参数
     lr = 5e-5 # 建议初始微调可以稍微大一点，因为基座冻结了
     model_id = "/backup/lanzhenzhongLab/public/models/Qwen2.5-7B-Instruct"
-    data_path = "mocker/mock_dialogues_multi_domain_istrain=True.json"
+    data_path = "mocker/mock_dialogues_multi_domain_istrain_1.json"
     save_path = "./checkpoints/cass_kv_qwen25_v1"
     os.makedirs(save_path, exist_ok=True)
 
@@ -172,7 +172,15 @@ def train():
         for batch in pbar:
             losses, metrics = train_one_dialogue(model, batch, optimizer)
             loss_val = losses["total_loss"]
-            pbar.set_postfix({"loss": f"{loss_val:.4f}"})
+            target_loss = losses["target_loss"]
+            select_loss = losses["select_loss"]
+            pbar.set_postfix(
+                {
+                    "loss": f"{loss_val:.4f}",
+                    "target": f"{target_loss:.4f}",
+                    "select": f"{select_loss:.4f}",
+                }
+            )
             if global_step % 10 == 0:
                 log_data = {
                     **{f"train/{k}": v for k, v in losses.items()},

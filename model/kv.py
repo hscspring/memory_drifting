@@ -17,6 +17,7 @@ def compute_target_loss(m_new, target_embed, negatives=None, alpha=1.0):
         return mse_loss + 0.1 * neg_loss  # 小权重推开负样本
     return mse_loss
 
+
 def compute_target_loss_contrastive(m_new, target_embed, negatives=None, alpha=0.5, tau=0.05):
     """
     m_new: (1, H)
@@ -111,7 +112,7 @@ class SlotSelector(nn.Module):
         self.output = nn.Sequential(
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(hidden_size, history_len)
+            nn.Linear(hidden_size, 1)
         )
 
     def forward(self, r_agg: torch.Tensor, m_read: torch.Tensor):
@@ -121,16 +122,12 @@ class SlotSelector(nn.Module):
         返回:
             slot_logits: (B, history_len)
         """
-        # 投影
         r = self.r_proj(r_agg)               # (B,1,H)
         m = self.m_proj(m_read)              # (B,history_len,H)
 
-        # 广播相加
         h = r + m                             # (B, history_len, H)
-        # 激活 + 输出
-        slot_logits = self.output(h)          # (B, history_len)
+        slot_logits = self.output(h).squeeze(-1)    # (B, history_len)
         return slot_logits
-
 
 
 class CASSKVInjectionModel(nn.Module):

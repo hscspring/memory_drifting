@@ -6,11 +6,17 @@ import torch
 from torch.nn import functional as F
 from torch.amp import autocast
 from transformers import AutoTokenizer
-from transformers.cache_utils import DynamicCache
+from transformers.cache_utils import DynamicCache, Cache
 
 from utils import check_answer
-from model.kv import CASSKVInjectionModel
+from model.kv import CASSKVInjectionModel, InjectionCache
 
+"""
+阶段,输入长度,Cache 物理长度,Attention 矩阵大小
+标准 Prefill,L,0,"(B,H,L,L)"
+注入 Prefill,L,M,"(B,H,L,M+L)"
+增量生成,1,M+L,"(B,H,1,M+L+1)"
+"""
 
 class CASSEvaluator:
     def __init__(self, model: CASSKVInjectionModel, tokenizer):
@@ -81,35 +87,78 @@ class CASSEvaluator:
         latest_kv = self.model.latest_projector(m_prev[:, -1:, :])      # length=1
         history_kv = self.model.history_projector(selected_m)           # length=1
 
-        # 合并：最新 + 选中历史（共 2 个虚拟 token）
-        past_key_values = DynamicCache()
+        memory_kv = []
         for layer_idx in range(self.model.config.num_hidden_layers):
             k_latest, v_latest = latest_kv[layer_idx]
             k_hist, v_hist = history_kv[layer_idx]
-            k_comb = torch.cat([k_latest, k_hist], dim=2)               # (1, heads, 2, head_dim)
+            k_comb = torch.cat([k_latest, k_hist], dim=2)
             v_comb = torch.cat([v_latest, v_hist], dim=2)
-            past_key_values.update(k_comb, v_comb, layer_idx)
+            memory_kv.append((k_comb, v_comb))
+        memory_cache = InjectionCache(memory_kv)
+
+        # 合并：最新 + 选中历史（共 2 个虚拟 token）
+        # past_key_values = DynamicCache()
+        # for layer_idx in range(self.model.config.num_hidden_layers):
+        #     k_latest, v_latest = latest_kv[layer_idx]
+        #     k_hist, v_hist = history_kv[layer_idx]
+        #     k_comb = torch.cat([k_latest, k_hist], dim=2)               # (1, heads, 2, head_dim)
+        #     v_comb = torch.cat([v_latest, v_hist], dim=2)
+        #     past_key_values.update(k_comb, v_comb, layer_idx)
 
         # ================= 4. Generate =================
-        prefix_len = 2
-        position_ids = torch.arange(prefix_len, prefix_len + query_ids.size(1), device=device).unsqueeze(0)
-
-        generated = self.model.base_model.generate(
+        # prefix_len = past_key_values.get_seq_length()  # = 2
+        # position_ids = torch.arange(prefix_len, prefix_len + L, device=device).unsqueeze(0)
+        
+        L = query_ids.size(1)
+        position_ids = torch.arange(0, L, device=device).unsqueeze(0)
+        outputs = self.model.base_model.model(
             input_ids=query_ids,
-            past_key_values=past_key_values,
             position_ids=position_ids,
-            max_new_tokens=64,
-            do_sample=False,
-            temperature=0.2,
-            repetition_penalty=1.5,
-            pad_token_id=self.tokenizer.eos_token_id,
-            eos_token_id=self.tokenizer.eos_token_id,
+            past_key_values=memory_cache,
             use_cache=True,
         )
-        output_text = self.tokenizer.decode(
-            generated[0][query_ids.size(1):],
-            skip_special_tokens=True
+        past_key_values = outputs.past_key_values
+
+        cache_position = torch.tensor([L], device=device)
+        hidden = outputs.last_hidden_state[:, -1, :]
+        logits = self.model.base_model.lm_head(hidden)
+        next_token = torch.argmax(logits, dim=-1, keepdim=True)
+        generated = self.model.base_model.generate(
+            input_ids=next_token,
+            past_key_values=past_key_values,
+            # cache_position=cache_position,
+            max_new_tokens=64,
+            use_cache=True,
         )
+
+        # next_input_ids = query_ids[:, -1:]   # 只给最后一个 token
+        # next_position_ids = torch.tensor(
+        #     [[prefix_len + L]],
+        #     device=device
+        # )
+        # past_key_values = past_key_values   # 含 2 个 prefix + prompt KV
+        # input_ids = next_input_ids          # (1, 1)
+        # position_ids = next_position_ids    # (1, 1)
+        # generated = []
+        # max_new_tokens = 64
+        # for step in range(max_new_tokens):
+        #     outputs = self.model.base_model.model(
+        #         input_ids=input_ids,
+        #         position_ids=position_ids,
+        #         past_key_values=past_key_values,
+        #         use_cache=True,
+        #     )
+        #     hidden = outputs.last_hidden_state[:, -1, :]
+        #     logits = self.model.base_model.lm_head(hidden)
+        #     next_token = torch.argmax(logits, dim=-1, keepdim=True)
+        #     generated.append(next_token[0].item())
+        #     # 更新
+        #     input_ids = next_token
+        #     position_ids = position_ids + 1
+        #     past_key_values = outputs.past_key_values
+            # print(f"Step: {step}, kv_len={past_key_values.get_seq_length()}")
+
+        output_text = self.tokenizer.decode(generated[0], skip_special_tokens=True)
         return {
             "prediction": output_text,
             "probe_prob": g_prob,

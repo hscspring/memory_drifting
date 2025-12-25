@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from transformers import AutoModelForCausalLM
-from transformers.cache_utils import DynamicCache
+from transformers.cache_utils import DynamicCache, Cache
 
 
 
@@ -49,6 +49,54 @@ def compute_target_loss(m_new, target_embed, negatives=None, alpha=1.0):
         return mse_loss + 0.1 * neg_loss  # 小权重推开负样本
     return mse_loss
 
+
+class InjectionCache(Cache):
+    def __init__(self, memory_kv):
+        self.key_cache = [layer[0] for layer in memory_kv]
+        self.value_cache = [layer[1] for layer in memory_kv]
+        
+        # 你的逻辑：初始逻辑长度为 0
+        self._seen_tokens = 0 
+        self.memory_len = self.key_cache[0].shape[2] 
+        
+        self._is_compiled = False
+        self._is_quantized = False
+        self.has_layers = True
+        self.layers = [None] * len(self.key_cache)
+
+    @property
+    def is_compileable(self):
+        return False
+
+    def get_seq_length(self, layer_idx: int = 0) -> int:
+        return self._seen_tokens
+
+    # 【新增方法】修复 IndexError: index -1
+    def get_max_cache_shape(self):
+        # 返回格式为 (batch_size, num_heads, max_seq_len, head_dim)
+        # 只要 max_seq_len 够大就行，这里我们根据当前物理长度返回
+        sample_k = self.key_cache[0]
+        return (sample_k.shape[0], sample_k.shape[1], 8192, sample_k.shape[3])
+
+    def get_mask_sizes(self, cache_position, layer_idx=0):
+        # 物理偏移 = memory 长度 + 已生成的 query 长度
+        kv_offset = self.memory_len + self._seen_tokens
+        kv_length = kv_offset + cache_position.shape[0]
+        return kv_length, kv_offset
+
+    def update(self, key_states, value_states, layer_idx, cache_kwargs=None):
+        self.key_cache[layer_idx] = torch.cat([self.key_cache[layer_idx], key_states], dim=2)
+        self.value_cache[layer_idx] = torch.cat([self.value_cache[layer_idx], value_states], dim=2)
+        if layer_idx == len(self.key_cache) - 1:
+            self._seen_tokens += key_states.shape[2]
+        return self.key_cache[layer_idx], self.value_cache[layer_idx]
+
+    def get_usable_length(self, seq_len, layer_idx=0):
+        return self.memory_len + self._seen_tokens
+
+    def __getitem__(self, idx): return (self.key_cache[idx], self.value_cache[idx])
+    def __len__(self): return len(self.key_cache)
+
 class KVProjector(nn.Module):
     def __init__(self, config, use_layernorm=True):
         super().__init__()
@@ -90,8 +138,9 @@ class KVProjector(nn.Module):
 
 
 class SlotSelector(nn.Module):
-    def __init__(self, hidden_size, history_len, dropout=0.1):
+    def __init__(self, hidden_size, history_len, dropout=0.1, ordinal_scale=2.0):
         super().__init__()
+        self.ordinal_scale = ordinal_scale
         self.history_len = history_len
         self.hidden_size = hidden_size
 
@@ -101,11 +150,13 @@ class SlotSelector(nn.Module):
         self.m_proj = nn.Linear(hidden_size, hidden_size)
 
         # 输出每个 slot 的 logits
-        self.output = nn.Sequential(
+        self.output_content = nn.Sequential(
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(hidden_size, 1)
         )
+
+        self.output_ordinal = nn.Linear(hidden_size, 1)
 
     def forward(
         self, 
@@ -120,12 +171,13 @@ class SlotSelector(nn.Module):
         返回:
             slot_logits: (B, history_len)
         """
-        B, L, H = m_read.shape
-        r = self.r_proj(r_agg)               # (B,1,H)
-        m = self.m_proj(m_read)              # (B,history_len,H)
-
-        h = r + m + time_emb                             # (B, history_len, H)
-        slot_logits = self.output(h).squeeze(-1)    # (B, history_len)
+        r = self.r_proj(r_agg)          # (B,1,H)
+        m = self.m_proj(m_read)         # (B,L,H)
+        content_h = r + m               # (B,L,H)
+        content_logits = self.output_content(content_h).squeeze(-1)   # (B,L)
+        ordinal_logits = self.output_ordinal(time_emb).squeeze(-1)    # (B,L)
+        # ===== 强制加权 =====
+        slot_logits = content_logits + self.ordinal_scale * ordinal_logits
         return slot_logits
 
 
@@ -307,30 +359,56 @@ class CASSKVInjectionModel(nn.Module):
             history_kv = self.history_projector(selected_m) #  1,8,H -> per-layer KV ((k,v), ...)
 
             # 合并 KV
-            past_key_values = DynamicCache()
-            for layer_idx in range(self.config.num_hidden_layers):
-                # 最新状态 KV + 历史状态 KV → 长度为2的虚拟 prefix
+            memory_kv = []
+            for layer_idx in range(self.base_model.config.num_hidden_layers):
                 k_latest, v_latest = latest_kv[layer_idx]
                 k_hist, v_hist = history_kv[layer_idx]
-                k_combined = torch.cat([k_latest, k_hist], dim=2)  # (1, heads, 2, head_dim) (1,4,2,128)
-                v_combined = torch.cat([v_latest, v_hist], dim=2)
-                past_key_values.update(k_combined, v_combined, layer_idx)
+                k_comb = torch.cat([k_latest, k_hist], dim=2)
+                v_comb = torch.cat([v_latest, v_hist], dim=2)
+                memory_kv.append((k_comb, v_comb))
+            memory_cache = InjectionCache(memory_kv)
+            L = input_ids.size(1)
+            position_ids = torch.arange(0, L, device=device).unsqueeze(0)
+            outputs_gen = self.base_model.model(
+                input_ids=input_ids,
+                position_ids=position_ids,
+                past_key_values=memory_cache,
+                use_cache=False,
+            )
 
-            # 再次 forward 生成 logits
+            # past_key_values = DynamicCache()
+            # for layer_idx in range(self.config.num_hidden_layers):
+            #     # 最新状态 KV + 历史状态 KV → 长度为2的虚拟 prefix
+            #     k_latest, v_latest = latest_kv[layer_idx]
+            #     k_hist, v_hist = history_kv[layer_idx]
+            #     k_combined = torch.cat([k_latest, k_hist], dim=2)  # (1, heads, 2, head_dim) (1,4,2,128)
+            #     v_combined = torch.cat([v_latest, v_hist], dim=2)
+            #     past_key_values.update(k_combined, v_combined, layer_idx)
+
+            # past_len = past_key_values.get_seq_length()  # = 2
+            # position_ids = torch.arange(
+            #     past_len,
+            #     past_len + input_ids.size(1),
+            #     device=input_ids.device
+            # ).unsqueeze(0)
+            # # 再次 forward 生成 logits
             # outputs_gen = self.base_model.model(
             #     # inputs_embeds=token_embeds,
             #     input_ids=input_ids,
+            #     position_ids=position_ids,
             #     past_key_values=past_key_values,
             #     use_cache=False,
+            #     output_attentions=True,
             # )
-            # logits = self.base_model.lm_head(outputs_gen.last_hidden_state)
-            # shift_labels = labels[..., 1:].contiguous()
-            # shift_logits = logits[..., :-1, :].contiguous()
-            # llm_loss = F.cross_entropy(
-            #     shift_logits.view(-1, shift_logits.size(-1)),
-            #     shift_labels.view(-1),
-            #     ignore_index=-100
-            # )
-            # loss_dict["llm_loss"] = llm_loss
+
+            logits = self.base_model.lm_head(outputs_gen.last_hidden_state)
+            shift_labels = labels[..., 1:].contiguous()
+            shift_logits = logits[..., :-1, :].contiguous()
+            llm_loss = F.cross_entropy(
+                shift_logits.view(-1, shift_logits.size(-1)),
+                shift_labels.view(-1),
+                ignore_index=-100
+            )
+            loss_dict["llm_loss"] = llm_loss
 
         return loss_dict, m_new.detach(), new_len, g_logits

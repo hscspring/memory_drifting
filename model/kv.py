@@ -259,6 +259,7 @@ class CASSKVInjectionModel(nn.Module):
         target_embed: torch.Tensor = None,     # update turn 用的权威嵌入
         negative_embeds: List[torch.Tensor] = None,
         slot_label: torch.LongTensor = None,   # query turn 用的历史位置标签
+        turn_id: torch.LongTensor = None,
     ):
         """
         input_ids: 1,L
@@ -293,8 +294,9 @@ class CASSKVInjectionModel(nn.Module):
         # ================= 2. 更新最新状态 =================
         latest_m = m_prev[:, -1, :]  # 当前最新状态 (1, H)
         g_logits = self.probe(torch.cat([r_agg, latest_m], dim=-1)) # (1,1)
-        probe_loss = F.binary_cross_entropy_with_logits(g_logits.squeeze(-1), update_flag.unsqueeze(-1)) # (1, ), (1, )
-        loss_dict["probe_loss"] = probe_loss # () scalar
+        if self.training:
+            probe_loss = F.binary_cross_entropy_with_logits(g_logits.squeeze(-1), update_flag.unsqueeze(-1)) # (1, ), (1, )
+            loss_dict["probe_loss"] = probe_loss # () scalar
 
         update_index = torch.clamp(current_len - 1, min=0, max=self.history_len - 1)
         ordinal = self.ordinal_emb(update_index)
@@ -305,8 +307,10 @@ class CASSKVInjectionModel(nn.Module):
         m_new_latest = g_signal * (m_candidate + ordinal) + (1 - g_signal) * latest_m # (1, H)
 
         # 更新队列：向右 roll，最新位置写入新状态
-        m_new = torch.roll(m_prev, shifts=-1, dims=1) # (1, history_len, H)
-        m_new[:, -1, :] = m_new_latest
+        # m_new = torch.roll(m_prev, shifts=-1, dims=1) # (1, history_len, H)
+        # m_new[:, -1, :] = m_new_latest
+        m_new = m_prev.clone()
+        m_new[:, turn_id, :] = m_new_latest
 
         # 更新有效长度
         new_len = current_len.clone() # (1, )
@@ -338,8 +342,24 @@ class CASSKVInjectionModel(nn.Module):
             mask = torch.arange(self.history_len, device=device).unsqueeze(0) < current_len
             slot_logits = slot_logits.masked_fill(~mask, -1e9)
             # slot_logits = slot_logits / 8.0
-            slot_probs = F.softmax(slot_logits, dim=-1)
-            print(f"slot_prob: {[f'{i:.4f}' for i in slot_probs[0]]}, index: {slot_probs.argmax().item()}, slot_label: {slot_label}")
+
+            # if self.training:
+            #     tau = 0.5  # 温度，可调
+            #     slot_probs = F.gumbel_softmax(slot_logits, tau=tau, hard=True)  # hard=True 得到 one-hot
+            #     slot_onehot = F.one_hot(slot_label, num_classes=m_new.size(1)).float()
+            #     selected_m = torch.sum(m_new * slot_onehot.unsqueeze(-1), dim=1, keepdim=True)
+            # else:
+            #     slot_probs = F.softmax(slot_logits, dim=-1)
+            #     selected_idx = slot_probs.argmax(dim=-1, keepdim=True)  # (1,1)
+            #     # 硬选择
+            #     selected_m = m_new.gather(
+            #         dim=1,
+            #         index=selected_idx.unsqueeze(-1).expand(-1, -1, m_new.size(-1))
+            #     )
+            #     # 软选择
+            #     # selected_m = torch.sum(m_new * slot_probs.unsqueeze(-1), dim=1, keepdim=True)  # (1,1,history_len) -> 1,8,H
+                
+            # print(f"slot_prob: {[f'{i:.4f}' for i in slot_probs[0]]}, index: {slot_probs.argmax().item()}, slot_label: {slot_label}")
 
             # 训练 loss
             if slot_label is not None:
@@ -347,68 +367,43 @@ class CASSKVInjectionModel(nn.Module):
                     slot_label = slot_label.unsqueeze(0)
                 assert slot_label.max() < self.history_len and slot_label.min() >= 0
                 select_loss = F.cross_entropy(slot_logits, slot_label)
-                latest_attn_loss = -slot_probs[:, -1].log().mean() * 0.1
                 loss_dict["select_loss"] = select_loss
-                loss_dict["latest_attn_loss"] = latest_attn_loss
+                # latest_attn_loss = -slot_probs[:, -1].log().mean() * 0.1
+                # loss_dict["latest_attn_loss"] = latest_attn_loss
 
             # ============== 生成阶段（注入两个虚拟 KV）==============
             # a. 始终注入最新状态（强权威）
-            latest_kv = self.latest_projector(m_new[:, -1:, :])  # (1,1,D) → per-layer KV ((k,v), ...)
+            # latest_kv = self.latest_projector(m_new[:, -1:, :])  # (1,1,D) → per-layer KV ((k,v), ...)
             # b. 注入检索到的历史状态（软选择）
-            selected_m = torch.sum(m_new * slot_probs.unsqueeze(-1), dim=1, keepdim=True)  # (1,1,history_len) -> 1,8,H
-            history_kv = self.history_projector(selected_m) #  1,8,H -> per-layer KV ((k,v), ...)
+            # history_kv = self.history_projector(selected_m) #  1,8,H -> per-layer KV ((k,v), ...)
 
             # 合并 KV
-            memory_kv = []
-            for layer_idx in range(self.base_model.config.num_hidden_layers):
-                k_latest, v_latest = latest_kv[layer_idx]
-                k_hist, v_hist = history_kv[layer_idx]
-                k_comb = torch.cat([k_latest, k_hist], dim=2)
-                v_comb = torch.cat([v_latest, v_hist], dim=2)
-                memory_kv.append((k_comb, v_comb))
-            memory_cache = InjectionCache(memory_kv)
-            L = input_ids.size(1)
-            position_ids = torch.arange(0, L, device=device).unsqueeze(0)
-            outputs_gen = self.base_model.model(
-                input_ids=input_ids,
-                position_ids=position_ids,
-                past_key_values=memory_cache,
-                use_cache=False,
-            )
-
-            # past_key_values = DynamicCache()
-            # for layer_idx in range(self.config.num_hidden_layers):
-            #     # 最新状态 KV + 历史状态 KV → 长度为2的虚拟 prefix
+            # memory_kv = []
+            # for layer_idx in range(self.base_model.config.num_hidden_layers):
             #     k_latest, v_latest = latest_kv[layer_idx]
             #     k_hist, v_hist = history_kv[layer_idx]
-            #     k_combined = torch.cat([k_latest, k_hist], dim=2)  # (1, heads, 2, head_dim) (1,4,2,128)
-            #     v_combined = torch.cat([v_latest, v_hist], dim=2)
-            #     past_key_values.update(k_combined, v_combined, layer_idx)
+            #     k_comb = torch.cat([k_latest, k_hist], dim=2)
+            #     v_comb = torch.cat([v_latest, v_hist], dim=2)
+            #     memory_kv.append((k_comb, v_comb))
+            # memory_cache = InjectionCache(memory_kv)
 
-            # past_len = past_key_values.get_seq_length()  # = 2
-            # position_ids = torch.arange(
-            #     past_len,
-            #     past_len + input_ids.size(1),
-            #     device=input_ids.device
-            # ).unsqueeze(0)
-            # # 再次 forward 生成 logits
+            # L = input_ids.size(1)
+            # position_ids = torch.arange(0, L, device=device).unsqueeze(0)
             # outputs_gen = self.base_model.model(
-            #     # inputs_embeds=token_embeds,
             #     input_ids=input_ids,
             #     position_ids=position_ids,
-            #     past_key_values=past_key_values,
+            #     past_key_values=memory_cache,
             #     use_cache=False,
-            #     output_attentions=True,
             # )
 
-            logits = self.base_model.lm_head(outputs_gen.last_hidden_state)
-            shift_labels = labels[..., 1:].contiguous()
-            shift_logits = logits[..., :-1, :].contiguous()
-            llm_loss = F.cross_entropy(
-                shift_logits.view(-1, shift_logits.size(-1)),
-                shift_labels.view(-1),
-                ignore_index=-100
-            )
-            loss_dict["llm_loss"] = llm_loss
+            # logits = self.base_model.lm_head(outputs_gen.last_hidden_state)
+            # shift_labels = labels[..., 1:].contiguous()
+            # shift_logits = logits[..., :-1, :].contiguous()
+            # llm_loss = F.cross_entropy(
+            #     shift_logits.view(-1, shift_logits.size(-1)),
+            #     shift_labels.view(-1),
+            #     ignore_index=-100
+            # )
+            # loss_dict["llm_loss"] = llm_loss
 
         return loss_dict, m_new.detach(), new_len, g_logits

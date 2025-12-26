@@ -48,10 +48,12 @@ def train_one_dialogue(model: CASSKVInjectionModel, batch: Dict[str, Any], optim
     gates_active = []   # update turn 中 probe 预测的 gate 值（sigmoid后）
     gates_pred_active = []  # probe 实际预测的概率（用于看是否学得准）
 
-    for turn in batch["dialogue_turns"]:
+    for _turn_id, turn in enumerate(batch["dialogue_turns"]):
         input_ids = turn["input_ids"].unsqueeze(0).to(device)      # (1, seq_len)
         labels = turn["labels"].unsqueeze(0).to(device)            # (1, seq_len)
         update_flag = turn["update_flag"].to(device)               # (1,)
+        turn_id = turn["turn_id"].to(device)                       # (1,)
+        print(input_ids.shape, labels.shape, update_flag.shape, turn_id.shape)
 
         # 准备监督信号
         if update_flag.item() > 0.5:  # update turn
@@ -79,6 +81,7 @@ def train_one_dialogue(model: CASSKVInjectionModel, batch: Dict[str, Any], optim
                 target_embed=e_target,
                 negative_embeds=negative_embeds,
                 slot_label=slot_label,
+                trun_id=turn_id,
             )
 
         # 加权总 loss（可根据实验调整系数）

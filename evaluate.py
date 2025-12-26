@@ -19,10 +19,11 @@ from model.kv import CASSKVInjectionModel, InjectionCache
 """
 
 class CASSEvaluator:
-    def __init__(self, model: CASSKVInjectionModel, tokenizer):
+    def __init__(self, model: CASSKVInjectionModel, tokenizer, use_gumbel: bool):
         self.model = model
         self.tokenizer = tokenizer
         self.model.eval()
+        self.use_gumbel = use_gumbel
 
     @torch.no_grad()
     def evaluate_item(self, item: Dict[str, Any]) -> str:
@@ -48,7 +49,7 @@ class CASSEvaluator:
                 update_flag=torch.tensor(1.0, device=device),  # 更新 memory
             )
             g_prob = torch.sigmoid(g_logits)
-            g_signal = (g_prob > TH).float()  # (1, 1)
+            # g_signal = (g_prob > TH).float()  # (1, 1)
             # print(f"g_signal: {g_signal}")
 
         # ==================== 处理最终 test query ====================
@@ -73,17 +74,22 @@ class CASSEvaluator:
         slot_logits = self.model.slot_selector(r_agg.unsqueeze(1), m_read, time_bias)  # (1, history_len)
         mask = torch.arange(self.model.history_len, device=device).unsqueeze(0) < current_len
         slot_logits = slot_logits.masked_fill(~mask, -1e9)
-        slot_probs = F.softmax(slot_logits, dim=-1)
-        selected_idx = slot_logits.argmax(dim=-1, keepdim=True)
-        selected_m = m_prev.gather(
-            dim=1,
-            index=selected_idx.unsqueeze(-1).expand(-1, -1, m_prev.size(-1))
-        )
 
-        latest_kv = self.model.latest_projector(m_prev[:, -1:, :])
-        history_kv = self.model.history_projector(selected_m)
+        if self.use_gumbel:
+            # soft
+            tau = 0.5  # 温度，可调
+            slot_probs = F.gumbel_softmax(slot_logits, tau=tau, hard=True) 
+            selected_m = torch.sum(m_new * slot_probs.unsqueeze(-1), dim=1, keepdim=True) 
+        else:
+            # hard
+            slot_probs = F.softmax(slot_logits, dim=-1)
+            selected_idx = slot_probs.argmax(dim=-1, keepdim=True)
+            selected_m = m_prev.gather(
+                dim=1,
+                index=selected_idx.unsqueeze(-1).expand(-1, -1, m_prev.size(-1))
+            )
 
-        # 投影 KV
+        0# 投影 KV
         latest_kv = self.model.latest_projector(m_prev[:, -1:, :])      # length=1
         history_kv = self.model.history_projector(selected_m)           # length=1
 
@@ -126,7 +132,7 @@ class CASSEvaluator:
         generated = self.model.base_model.generate(
             input_ids=next_token,
             past_key_values=past_key_values,
-            # cache_position=cache_position,
+            cache_position=cache_position,
             max_new_tokens=64,
             use_cache=True,
         )
@@ -186,7 +192,7 @@ async def main():
     model.eval()
 
     tokenizer = AutoTokenizer.from_pretrained(model_id, truncation_side="left")
-    evaluator = CASSEvaluator(model, tokenizer)
+    evaluator = CASSEvaluator(model, tokenizer, use_gumbel=False)
 
     file = "data_simple/eval_ds_human.jsonl"
     file = "mocker/mock_dialogues_multi_domain_istrain_0.json"

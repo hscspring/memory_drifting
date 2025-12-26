@@ -33,7 +33,7 @@ class CASSKVSequentialCollator:
         dialogue = features[0]
         turns_data = []
 
-        for turn in dialogue["dialogue_turns"]:
+        for turn_id, turn in enumerate(dialogue["dialogue_turns"]):
             update_flag = int(turn["update_flag"])
             user_msg = [{"role": "user", "content": turn["user_input"]}]
             assistant_msg = {"role": "assistant", "content": turn["llm_output"]}
@@ -98,6 +98,8 @@ class CASSKVSequentialCollator:
                     torch.tensor(turn["slot_label"], dtype=torch.long)
                     if turn["slot_label"] is not None else None
                 )
+            
+            turn_id = torch.tensor(turn_id, dtype=torch.long)
 
             turns_data.append({
                 "input_ids": torch.tensor(full_ids, dtype=torch.long),
@@ -106,6 +108,7 @@ class CASSKVSequentialCollator:
                 "target_ids": target_ids,              # (seq_len,) 或 None
                 "negative_state_ids": negative_state_ids,  # (num_neg, seq_len) 或 None
                 "slot_label": slot_label,              # tensor scalar 或 None
+                "turn_id": turn_id,
             })
 
         return {"dialogue_turns": turns_data}
